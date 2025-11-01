@@ -40,10 +40,16 @@ def validate_inputs(**kwargs):
 
 def generate_destination_recommendation(season, health_condition, budget, interests):
     """生成目的地推荐"""
+    # 将兴趣列表转换为字符串
+    if isinstance(interests, list):
+        interests_str = "、".join(interests)
+    else:
+        interests_str = str(interests)
+
     # 验证输入
     is_valid, msg = validate_inputs(
         season=season, health_condition=health_condition,
-        budget=budget, interests=interests
+        budget=budget, interests=interests_str
     )
     if not is_valid:
         return msg
@@ -60,7 +66,7 @@ def generate_destination_recommendation(season, health_condition, budget, intere
 
 请用通俗易懂、温馨友好的语言回复，避免过于专业的术语。"""
 
-    user_prompt = f"季节：{season}，健康状况：{health_condition}，预算：{budget}，兴趣偏好：{interests}"
+    user_prompt = f"季节：{season}，健康状况：{health_condition}，预算：{budget}，兴趣偏好：{interests_str}"
 
     result = ""
     try:
@@ -91,6 +97,12 @@ def generate_destination_recommendation(season, health_condition, budget, intere
 
 def generate_itinerary_plan(destination, duration, mobility, health_focus):
     """生成行程规划"""
+    # 将健康关注点列表转换为字符串
+    if isinstance(health_focus, list):
+        health_focus_str = "、".join(health_focus)
+    else:
+        health_focus_str = str(health_focus)
+
     is_valid, msg = validate_inputs(destination=destination, duration=duration)
     if not is_valid:
         return msg
@@ -108,7 +120,7 @@ def generate_itinerary_plan(destination, duration, mobility, health_focus):
     user_prompt = f"""目的地：{destination}
 旅行时长：{duration}
 行动能力：{mobility}
-健康关注点：{health_focus}"""
+健康关注点：{health_focus_str}"""
 
     result = ""
     try:
@@ -229,12 +241,32 @@ def generate_travel_story(photos, custom_input):
 
 def create_app():
     """创建Gradio应用"""
+    # 兴趣偏好选项
+    interest_options = [
+        "避寒康养", "海岛度假", "文化历史", "温泉养生", "自然风光",
+        "美食体验", "摄影采风", "休闲购物", "传统建筑", "民俗体验",
+        "慢节奏游", "海滨漫步", "茶文化", "寺庙祈福", "古镇风情",
+        "田园风光", "动物观赏", "艺术展览", "传统戏曲", "手工体验",
+        "健康养生", "中医理疗", "瑜伽冥想", "森林浴", "阳光浴"
+    ]
+
+    # 健康关注点选项
+    health_focus_options = [
+        "避免过度疲劳", "饮食清淡", "需要靠近医院", "避免高原地区",
+        "需要无障碍设施", "避免长时间步行", "注意防晒", "避免潮湿环境",
+        "需要安静环境", "控制血压", "控制血糖", "关注空气质量",
+        "需要携带药物", "保护心脏", "保持关节灵活", "预防感冒",
+        "避免拥挤", "需要良好睡眠", "避免剧烈运动", "注意保暖",
+        "多喝水", "定期休息", "避免暴晒", "饮食规律", "适度活动"
+    ]
+
     with gr.Blocks(
         title="🧳 银发族智能旅行助手",
         theme=gr.themes.Soft(primary_hue="purple", secondary_hue="cyan"),
         css="""
         .gr-button {font-size: 18px !important; padding: 12px 20px !important;}
         .gr-textbox input {font-size: 16px !important;}
+        .gr-multiselect {min-height: 120px !important;}
         """
     ) as app:
         gr.HTML('''
@@ -269,10 +301,11 @@ def create_app():
                             value="舒适型",
                             info="选择您的预算档次"
                         )
-                        interests = gr.Textbox(
+                        interests = gr.CheckboxGroup(
+                            choices=interest_options,
+                            value=["避寒康养", "温泉养生"],
                             label="🎨 兴趣偏好",
-                            value="避寒、康养",
-                            info="例如：避寒、海岛、温泉、文化、美食、摄影等"
+                            info="可选择多个您感兴趣的主题"
                         )
                         btn1 = gr.Button("🔍 推荐目的地", variant="primary", size="lg")
                         output1 = gr.Textbox(
@@ -297,10 +330,11 @@ def create_app():
                             label="🚶 行动能力",
                             value="行走自如"
                         )
-                        health_focus = gr.Textbox(
+                        health_focus = gr.CheckboxGroup(
+                            choices=health_focus_options,
+                            value=["避免过度疲劳", "饮食清淡", "定期休息"],
                             label="❤️ 健康关注点",
-                            value="避免过度疲劳，注意饮食健康",
-                            info="例如：避免高原、需靠近医院、饮食清淡等"
+                            info="可选择多个您的健康关注点"
                         )
                         btn2 = gr.Button("📋 制定行程", variant="primary", size="lg")
                         output2 = gr.Textbox(
