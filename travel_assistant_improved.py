@@ -542,6 +542,11 @@ def create_app():
                             max_lines=30,
                             info="为您量身定制的舒缓行程安排"
                         )
+                        btn3_origin = gr.Textbox(
+                            label="🏠 出发地（继续生成清单用）",
+                            value="",
+                            info="填写您的出发城市，用于生成交通预订指引"
+                        )
                         btn3 = gr.Button("🎁 继续生成清单", variant="secondary", size="lg")
                         output2_hint = gr.HTML(
                             value="""
@@ -571,17 +576,22 @@ def create_app():
                 )
 
                 # "继续生成清单"按钮：使用当前行程页面的输入直接生成清单
-                def continue_to_checklist(destination, duration, health_focus):
+                def continue_to_checklist(destination, duration, health_focus, origin):
                     # 将健康关注点转换为特殊需求描述
                     if isinstance(health_focus, list):
                         special_needs = "、".join(health_focus)
                     else:
                         special_needs = str(health_focus)
+
+                    # 如果有出发地，添加到特殊需求中
+                    if origin and origin.strip():
+                        special_needs = f"出发地：{origin}。" + special_needs
+
                     return generate_checklist(destination, duration, special_needs)
 
                 btn3.click(
                     fn=continue_to_checklist,
-                    inputs=[dest, dur, health_focus],
+                    inputs=[dest, dur, health_focus, btn3_origin],
                     outputs=[output3]
                 )
 
