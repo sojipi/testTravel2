@@ -149,23 +149,50 @@ def generate_itinerary_plan(destination, duration, mobility, health_focus):
     return result
 
 def generate_checklist(destination, duration, special_needs):
-    """生成旅行清单"""
+    """生成旅行清单（结构化数据）"""
+    # 生成唯一ID用于保存
+    import time
+    import json
+    checklist_id = f"{destination}_{duration}_{int(time.time())}"
+
     is_valid, msg = validate_inputs(destination=destination, duration=duration)
     if not is_valid:
         return msg
 
     client = init_openai_client()
-    system_prompt = """你是一个细心的老年旅行助手。请为老年人制定详细的行前准备清单，按类别分组，标注必需品和可选物品。
+    system_prompt = """你是一个专业的老年旅行助手。请为老年人制定详细的行前准备清单，包含交通、酒店、景点预订指引。
 
-清单应包括：
-1. 证件类（身份证、护照、医保卡等）
-2. 药品类（常用药、处方药、急救药）
-3. 衣物类（根据目的地气候）
-4. 电子设备（手机、充电器、血压计等）
-5. 日用品（眼镜、假牙、拐杖等）
-6. 其他必需品
+请以JSON格式返回，包含以下结构：
+{
+  "checklist": [
+    {
+      "category": "证件类",
+      "items": [
+        {"name": "物品名称", "required": true, "note": "备注说明"}
+      ]
+    }
+  ],
+  "booking_guides": {
+    "transport": {
+      "guide": "交通预订指引文字",
+      "platforms": ["推荐平台1", "推荐平台2"]
+    },
+    "hotel": {
+      "guide": "酒店预订指引文字",
+      "platforms": ["推荐平台1", "推荐平台2"]
+    },
+    "attractions": {
+      "guide": "景点预订指引文字",
+      "platforms": ["推荐平台1", "推荐平台2"]
+    }
+  },
+  "tips": ["温馨提示1", "温馨提示2"]
+}
 
-请标注【必带】和【可选】，并给出温馨提示。"""
+清单类别应包括：证件类、药品类、衣物类、电子设备、日用品等。
+每个类别列出具体物品，标注【必带】(required: true)和【可选】(required: false)。
+交通、酒店、景点指引要详细具体，包含预订流程和推荐平台。
+只返回JSON，不要其他文字。"""
 
     user_prompt = f"目的地：{destination}，旅行时长：{duration}，特殊需求：{special_needs}"
 
@@ -179,7 +206,7 @@ def generate_checklist(destination, duration, special_needs):
             ],
             stream=True,
             temperature=0.6,
-            max_tokens=1500
+            max_tokens=2000
         )
         for chunk in response:
             answer_chunk = chunk.choices[0].delta.content
@@ -189,11 +216,183 @@ def generate_checklist(destination, duration, special_needs):
 
         if not result.strip():
             result = "抱歉，暂时无法生成清单，请稍后再试。"
+            return result
+
+        # 尝试解析JSON
+        try:
+            import json
+            # 提取JSON部分（处理可能的markdown代码块）
+            json_match = None
+            if "```json" in result:
+                json_match = result.split("```json")[1].split("```")[0].strip()
+            elif "```" in result:
+                json_match = result.split("```")[1].split("```")[0].strip()
+            else:
+                json_match = result.strip()
+
+            data = json.loads(json_match)
+
+            # 保存到本地
+            save_checklist_data(checklist_id, destination, duration, data)
+
+            # 格式化为可读文本
+            formatted_result = format_checklist_output(checklist_id, destination, duration, data)
+            return formatted_result
+
+        except json.JSONDecodeError:
+            # 如果解析失败，返回原始文本
+            return f"⚠️ 数据解析异常，请检查返回格式。\n\n原始结果：\n{result}"
 
     except Exception as e:
         result = f"[错误] 生成清单时出错：{str(e)}"
+        return result
 
     return result
+
+def save_checklist_data(checklist_id, destination, duration, data):
+    """保存清单数据到本地JSON文件"""
+    import json
+    import os
+    from datetime import datetime
+
+    # 创建保存目录
+    save_dir = "checklist_data"
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # 准备保存的数据
+    save_data = {
+        "id": checklist_id,
+        "destination": destination,
+        "duration": duration,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "data": data
+    }
+
+    # 保存到文件
+    file_path = os.path.join(save_dir, f"{checklist_id}.json")
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(save_data, f, ensure_ascii=False, indent=2)
+
+def format_checklist_output(checklist_id, destination, duration, data):
+    """格式化清单输出为可读文本"""
+    output = f"📋 旅行清单 - {destination} ({duration})\n"
+    output += "=" * 60 + "\n\n"
+
+    # 格式化清单
+    output += "📦 行前准备清单：\n"
+    output += "-" * 60 + "\n\n"
+    for category in data.get("checklist", []):
+        category_name = category.get("category", "")
+        items = category.get("items", [])
+        output += f"🔹 {category_name}\n"
+        for item in items:
+            name = item.get("name", "")
+            required = item.get("required", False)
+            note = item.get("note", "")
+            required_text = "【必带】" if required else "【可选】"
+            output += f"   {required_text} {name}"
+            if note:
+                output += f" - {note}"
+            output += "\n"
+        output += "\n"
+
+    # 格式化预订指引
+    output += "🎫 预订指引：\n"
+    output += "-" * 60 + "\n\n"
+
+    booking_guides = data.get("booking_guides", {})
+    if booking_guides:
+        # 交通指引
+        if "transport" in booking_guides:
+            output += "✈️ 交通预订：\n"
+            output += f"   {booking_guides['transport'].get('guide', '')}\n"
+            platforms = booking_guides['transport'].get('platforms', [])
+            if platforms:
+                output += "   推荐平台：\n"
+                for platform in platforms:
+                    output += f"     • {platform}\n"
+            output += "\n"
+
+        # 酒店指引
+        if "hotel" in booking_guides:
+            output += "🏨 酒店预订：\n"
+            output += f"   {booking_guides['hotel'].get('guide', '')}\n"
+            platforms = booking_guides['hotel'].get('platforms', [])
+            if platforms:
+                output += "   推荐平台：\n"
+                for platform in platforms:
+                    output += f"     • {platform}\n"
+            output += "\n"
+
+        # 景点指引
+        if "attractions" in booking_guides:
+            output += "🎯 景点预订：\n"
+            output += f"   {booking_guides['attractions'].get('guide', '')}\n"
+            platforms = booking_guides['attractions'].get('platforms', [])
+            if platforms:
+                output += "   推荐平台：\n"
+                for platform in platforms:
+                    output += f"     • {platform}\n"
+            output += "\n"
+
+    # 温馨提示
+    tips = data.get("tips", [])
+    if tips:
+        output += "💡 温馨提示：\n"
+        output += "-" * 60 + "\n"
+        for tip in tips:
+            output += f"   • {tip}\n"
+        output += "\n"
+
+    output += "=" * 60 + "\n"
+    output += f"📝 清单ID：{checklist_id}\n"
+    output += "💾 此清单已自动保存至本地（checklist_data目录）\n"
+
+    return output
+
+def load_checklist_history():
+    """加载所有保存的清单历史记录"""
+    import json
+    import os
+
+    history = []
+    save_dir = "checklist_data"
+
+    if not os.path.exists(save_dir):
+        return []
+
+    for filename in os.listdir(save_dir):
+        if filename.endswith(".json"):
+            file_path = os.path.join(save_dir, filename)
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    history.append({
+                        "id": data.get("id", ""),
+                        "destination": data.get("destination", ""),
+                        "duration": data.get("duration", ""),
+                        "timestamp": data.get("timestamp", ""),
+                        "filename": filename
+                    })
+            except Exception as e:
+                print(f"加载文件 {filename} 出错：{e}")
+
+    # 按时间倒序排列
+    history.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    return history
+
+def delete_checklist_record(filename):
+    """删除指定的清单记录"""
+    import os
+
+    save_dir = "checklist_data"
+    file_path = os.path.join(save_dir, filename)
+
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        return True
+    return False
 
 def generate_travel_story(photos, custom_input):
     """生成旅行故事"""
@@ -397,6 +596,11 @@ def create_app():
                             </p>
                         </div>
                         ''')
+                        checklist_origin = gr.Textbox(
+                            label="🏠 出发地",
+                            value="",
+                            info="填写您的出发城市（例如：北京、上海、广州等）"
+                        )
                         checklist_dest = gr.Textbox(
                             label="📍 目的地",
                             value="",
@@ -421,10 +625,96 @@ def create_app():
                             info="详细的行前准备清单，按类别分组"
                         )
 
+                # 历史记录区域
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        gr.HTML('''
+                        <div style="padding:15px; background:#e7f3ff; border-radius:8px; margin-top:20px; margin-bottom:15px;">
+                            <p style="color:#0066cc; font-size:14px; margin:0; font-weight:bold;">
+                                📚 历史记录 - 保存的清单
+                            </p>
+                        </div>
+                        ''')
+                        btn_refresh_history = gr.Button("🔄 刷新历史记录", variant="secondary", size="lg")
+                        history_output = gr.Dropdown(
+                            choices=[],
+                            label="📜 选择历史记录",
+                            info="选择一个已保存的清单记录查看"
+                        )
+                        btn_load_history = gr.Button("📖 加载选中记录", variant="secondary", size="lg")
+                        btn_delete_history = gr.Button("🗑️ 删除选中记录", variant="stop", size="lg")
+                        history_detail = gr.Textbox(
+                            label="📄 记录详情",
+                            lines=20,
+                            max_lines=30,
+                            info="选择历史记录后将显示在此处"
+                        )
+
+                # 事件绑定
                 btn3.click(
                     fn=generate_checklist,
                     inputs=[checklist_dest, checklist_dur, checklist_needs],
                     outputs=[output3_for_tab2]
+                )
+
+                # 历史记录事件
+                def refresh_history():
+                    history = load_checklist_history()
+                    choices = [(f"{h['destination']} ({h['duration']}) - {h['timestamp']}", h['filename']) for h in history]
+                    return gr.Dropdown.update(choices=choices, value=None)
+
+                btn_refresh_history.click(
+                    fn=refresh_history,
+                    outputs=[history_output]
+                )
+
+                def load_history_record(filename):
+                    if not filename:
+                        return "请先选择一条历史记录"
+                    import json
+                    import os
+
+                    save_dir = "checklist_data"
+                    file_path = os.path.join(save_dir, filename)
+
+                    if not os.path.exists(file_path):
+                        return "记录不存在或已被删除"
+
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+
+                        # 重新格式化显示
+                        checklist_data = data.get("data", {})
+                        result = format_checklist_output(
+                            data.get("id", ""),
+                            data.get("destination", ""),
+                            data.get("duration", ""),
+                            checklist_data
+                        )
+                        return result
+                    except Exception as e:
+                        return f"加载记录时出错：{str(e)}"
+
+                btn_load_history.click(
+                    fn=load_history_record,
+                    inputs=[history_output],
+                    outputs=[history_detail]
+                )
+
+                def delete_history_record(filename):
+                    if not filename:
+                        return "请先选择一条历史记录", None
+
+                    if delete_checklist_record(filename):
+                        return f"✅ 已删除记录：{filename}", None
+                    else:
+                        return f"❌ 删除失败：记录不存在", filename
+
+                btn_delete_history.click(
+                    fn=delete_history_record,
+                    inputs=[history_output],
+                    outputs=[history_detail, history_output]
                 )
 
             # Tab 3: 旅行游记生成
