@@ -73,3 +73,6 @@ config.ini
 .claude/
 .vscode/settings.local.json
 .lingma/
+
+# User generated data
+checklist_data/
