@@ -77,3 +77,5 @@ config.ini
 
 # User generated data
 checklist_data/
+
+requirements.txt

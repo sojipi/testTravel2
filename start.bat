@@ -95,7 +95,7 @@ echo.
 echo Press Ctrl+C to stop
 echo.
 
-py travel_assistant_improved.py
+py app.py
 
 if errorlevel 1 (
     echo.
