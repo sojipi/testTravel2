@@ -25,6 +25,11 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
+echo "📋 加载环境变量..."
+# 加载.env文件中的环境变量
+export $(grep -v '^#' .env | xargs)
+echo "✅ 环境变量加载完成"
+
 echo "✅ 环境检查通过"
 echo ""
 
@@ -45,4 +50,4 @@ echo ""
 echo "按 Ctrl+C 停止应用"
 echo ""
 
-python3 travel_assistant.py
+python3 travel_assistant_improved.py

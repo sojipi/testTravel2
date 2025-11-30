@@ -10,6 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
+generated_videos/
 lib/
 lib64/
 parts/

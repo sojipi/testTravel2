@@ -79,6 +79,26 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "✅ 依赖包安装完成" -ForegroundColor Green
 Write-Host ""
 
+Write-Host "📋 加载环境变量..." -ForegroundColor Cyan
+# 加载.env文件中的环境变量
+if (Test-Path ".env") {
+    Get-Content ".env" | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -and -not $line.StartsWith("#")) {
+            $key, $value = $line -split "=", 2
+            if ($key -and $value) {
+                # 移除引号
+                $value = $value.Trim('"', "'")
+                [Environment]::SetEnvironmentVariable($key.Trim(), $value.Trim(), "Process")
+            }
+        }
+    }
+    Write-Host "✅ 环境变量加载完成" -ForegroundColor Green
+} else {
+    Write-Host "⚠️  未找到.env文件" -ForegroundColor Yellow
+}
+Write-Host ""
+
 Write-Host "🚀 启动应用..." -ForegroundColor Cyan
 Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host "访问地址：http://localhost:7860" -ForegroundColor Green
@@ -87,7 +107,7 @@ Write-Host ""
 Write-Host "按 Ctrl+C 停止应用" -ForegroundColor Yellow
 Write-Host ""
 
-python travel_assistant.py
+python travel_assistant_improved.py
 
 # 如果程序异常退出
 if ($LASTEXITCODE -ne 0) {

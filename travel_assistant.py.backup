@@ -12,7 +12,7 @@ from datetime import datetime
 
 # 配置API密钥 - 请直接修改这里的配置
 # 获取API密钥: https://api.minimax.chat/
-API_KEY = "ms-b064f11b-4b11-4ae0-a00e-ff98a69c9bd3"  # <-- 在这里填入您的API密钥
+API_KEY = ""  # <-- 在这里填入您的API密钥
 BASE_URL = "https://api-inference.modelscope.cn/v1/"  # API Base URL
 MODEL_NAME = "MiniMax/MiniMax-M2"  # 模型名称，可以是 abab6.5s-chat, abab6.5g-chat 等
 

@@ -1,6 +1,15 @@
 #!/bin/bash
 echo "正在启动银发族智能旅行助手..."
 echo ""
+echo "加载环境变量..."
+# 加载.env文件中的环境变量
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+    echo "环境变量加载完成"
+else
+    echo "未找到.env文件"
+fi
+echo ""
 echo "请确保已安装所需依赖："
 echo "  pip install -r requirements.txt"
 echo ""

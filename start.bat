@@ -76,6 +76,17 @@ if errorlevel 1 (
 echo [OK] Dependencies installed
 echo.
 
+echo [INFO] Loading environment variables...
+for /f "tokens=1,* delims==" %%a in (.env) do (
+    if not "%%a"=="" (
+        if not "%%a"=="#" (
+            set "%%a=%%b"
+        )
+    )
+)
+echo [OK] Environment variables loaded
+echo.
+
 echo [INFO] Starting application...
 echo ==============================================
 echo URL: http://localhost:7860
