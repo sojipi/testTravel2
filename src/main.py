@@ -37,12 +37,14 @@ except ImportError:
         generate_itinerary_plan,
         generate_checklist
     )
+    from core.video_editor import create_video_from_images, validate_media_files
     from ui.components import (
         create_app_theme,
         create_header,
         create_destination_section,
         create_itinerary_section,
         create_checklist_section,
+        create_video_editor_section,
         create_footer,
         create_loading_animation,
         hide_loading_animation
