@@ -4,10 +4,20 @@ Contains functions for creating videos from images with audio and effects.
 """
 
 import os
+import re
+import sys
 import tempfile
 from typing import List, Optional, Dict, Any
 import moviepy.editor as mpy
 from moviepy.video.fx.all import fadein, fadeout
+
+# Add the src directory to Python path
+src_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
+
+# Import AI client
+from api.openai_client import get_client
 
 
 def validate_media_files(images: List[str], audio: Optional[str] = None) -> Dict[str, Any]:
@@ -182,3 +192,96 @@ def create_video_from_images(
         
     except Exception as e:
         raise RuntimeError(f"视频制作失败: {str(e)}") from e
+
+
+def parse_video_script(script: str) -> Dict[str, Any]:
+    """
+    Parse the video script to extract video parameters.
+    
+    Args:
+        script: Generated video script text
+        
+    Returns:
+        Dictionary of video parameters
+    """
+    params = {
+        'fps': 24,
+        'duration_per_image': 3.0,
+        'transition_duration': 0.5,
+        'animation_type': 'fade'
+    }
+    
+    try:
+        # Extract duration per image
+        duration_match = re.search(r'时长[:：]\s*(\d+(?:\.\d+)?)\s*秒', script)
+        if duration_match:
+            params['duration_per_image'] = float(duration_match.group(1))
+        
+        # Extract transition duration
+        transition_match = re.search(r'转场[:：]\s*(\d+(?:\.\d+)?)\s*秒', script)
+        if transition_match:
+            params['transition_duration'] = float(transition_match.group(1))
+        
+        # Extract animation type
+        if '缩放' in script or '放大' in script or '缩小' in script:
+            params['animation_type'] = 'zoom'
+        elif '平移' in script or '移动' in script or '摇镜头' in script:
+            params['animation_type'] = 'pan'
+        elif '淡入淡出' in script or '渐变' in script:
+            params['animation_type'] = 'fade'
+        
+        # Extract FPS if mentioned
+        fps_match = re.search(r'(\d+)fps|(\d+)FPS', script)
+        if fps_match:
+            params['fps'] = int(fps_match.group(1) or fps_match.group(2))
+            
+    except Exception as e:
+        # If parsing fails, use default parameters
+        print(f"脚本解析失败，使用默认参数: {str(e)}")
+    
+    return params
+
+
+def create_ai_video(
+    images: List[str],
+    audio: Optional[str] = None
+) -> str:
+    """
+    Create a video from images using AI generated script.
+    
+    Args:
+        images: List of image file paths
+        audio: Optional audio file path
+        
+    Returns:
+        Path to the created video file
+    """
+    try:
+        # Get AI client instance
+        client = get_client()
+        
+        # Analyze images using Qwen3-VL model
+        print("正在分析图片内容...")
+        image_descriptions = client.analyze_images(images)
+        
+        # Generate video script using DeepSeek model
+        print("正在生成视频脚本...")
+        script = client.generate_video_script(image_descriptions, audio)
+        print(f"生成的脚本:\n{script}")
+        
+        # Parse script to get video parameters
+        params = parse_video_script(script)
+        print(f"解析后的参数: {params}")
+        
+        # Create video using parsed parameters
+        print("正在制作视频...")
+        video_path = create_video_from_images(
+            images=images,
+            audio=audio,
+            **params
+        )
+        
+        return video_path
+        
+    except Exception as e:
+        raise RuntimeError(f"AI视频制作失败: {str(e)}") from e
