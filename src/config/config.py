@@ -17,7 +17,7 @@ TEMPERATURE = 0.7
 APP_TITLE = "🧳 银发族智能旅行助手"
 APP_DESCRIPTION = "专为中老年朋友设计的温暖贴心的旅行规划伙伴"
 SERVER_HOST = "0.0.0.0"
-SERVER_PORT = 7860
+SERVER_PORT = 7864
 
 # UI Configuration
 THEME_PRIMARY = "purple"

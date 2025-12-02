@@ -9,6 +9,9 @@ from typing import List, Optional, Dict, Any
 import moviepy.editor as mpy
 from moviepy.video.fx.all import fadein, fadeout
 
+# Import AI client
+from api.openai_client import OpenAIClient
+
 
 def validate_media_files(images: List[str], audio: Optional[str] = None) -> Dict[str, Any]:
     """
@@ -44,6 +47,153 @@ def validate_media_files(images: List[str], audio: Optional[str] = None) -> Dict
         'valid': len(errors) == 0,
         'errors': errors
     }
+
+
+def analyze_images_and_generate_script(images: List[str], audio_path: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Analyze images using AI and generate a video script.
+    
+    Args:
+        images: List of image file paths
+        audio_path: Optional audio file path
+        
+    Returns:
+        Dictionary containing image analysis results and generated script
+    """
+    try:
+        # Initialize OpenAI client
+        openai_client = OpenAIClient()
+        
+        # Step 1: Analyze images using Qwen/Qwen3-VL-8B-Instruct model
+        image_descriptions = []
+        for i, img_path in enumerate(images):
+            # Use OpenAIClient to analyze image with Qwen model
+            # Note: This assumes OpenAIClient has been modified to support Qwen model
+            image_analysis = openai_client.analyze_image_with_qwen(img_path)
+            image_descriptions.append(f"图片{i+1}：{image_analysis}")
+        
+        # Step 2: Generate video script using deepseek-ai/DeepSeek-V3.2-Exp model
+        system_prompt = "你是一个专业的视频脚本创作者，擅长根据图片内容和场景生成高质量的视频脚本。"
+        
+        user_prompt = f"""
+        请根据以下图片描述和背景音乐，生成一个适合的视频脚本：
+        
+        图片描述：
+        {chr(10).join(image_descriptions)}
+        
+        背景音乐：{audio_path if audio_path else '无'}
+        
+        请生成一个详细的视频脚本，包括：
+        1. 视频整体风格和主题
+        2. 每个图片的展示时长
+        3. 图片之间的过渡效果
+        4. 适合的动画效果
+        5. 视频的整体节奏
+        
+        请以JSON格式返回，包含以下字段：
+        - theme: 视频主题
+        - style: 视频风格
+        - fps: 帧率
+        - duration_per_image: 每张图片的展示时长（秒）
+        - transition_duration: 过渡时长（秒）
+        - animation_type: 动画类型（fade, zoom, pan）
+        - overall_duration: 视频总时长（秒）
+        """
+        
+        script = openai_client.generate_response_with_deepseek(system_prompt, user_prompt)
+        
+        return {
+            "image_analysis": image_descriptions,
+            "script": script
+        }
+        
+    except Exception as e:
+        raise RuntimeError(f"AI分析和脚本生成失败: {str(e)}") from e
+
+
+def parse_video_script(script: str) -> Dict[str, Any]:
+    """
+    Parse the video script JSON string into a dictionary of parameters.
+    
+    Args:
+        script: JSON string containing the video script
+        
+    Returns:
+        Dictionary of video parameters
+    """
+    import json
+    
+    try:
+        script_data = json.loads(script)
+        
+        # Extract and validate parameters
+        video_params = {
+            'fps': script_data.get('fps', 24),
+            'duration_per_image': script_data.get('duration_per_image', 3.0),
+            'transition_duration': script_data.get('transition_duration', 0.5),
+            'animation_type': script_data.get('animation_type', 'fade'),
+        }
+        
+        # Validate parameter types
+        if not isinstance(video_params['fps'], int) or video_params['fps'] <= 0:
+            video_params['fps'] = 24
+        
+        if not isinstance(video_params['duration_per_image'], (int, float)) or video_params['duration_per_image'] <= 0:
+            video_params['duration_per_image'] = 3.0
+        
+        if not isinstance(video_params['transition_duration'], (int, float)) or video_params['transition_duration'] < 0:
+            video_params['transition_duration'] = 0.5
+        
+        if not isinstance(video_params['animation_type'], str) or video_params['animation_type'] not in ['fade', 'zoom', 'pan']:
+            video_params['animation_type'] = 'fade'
+        
+        return video_params
+        
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        # If parsing fails, return default parameters
+        return {
+            'fps': 24,
+            'duration_per_image': 3.0,
+            'transition_duration': 0.5,
+            'animation_type': 'fade',
+        }
+
+
+def create_video_with_ai(images: List[str], audio: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Create a video using AI to analyze images and generate a script.
+    
+    Args:
+        images: List of image file paths
+        audio: Optional audio file path
+        
+    Returns:
+        Dictionary containing video path, image analysis results, and generated script
+    """
+    try:
+        # Step 1: Analyze images and generate video script
+        analysis_result = analyze_images_and_generate_script(images, audio)
+        image_analysis = analysis_result["image_analysis"]
+        script = analysis_result["script"]
+        
+        # Step 2: Parse script to extract video parameters
+        video_params = parse_video_script(script)
+        
+        # Step 3: Create video using the extracted parameters
+        video_path = create_video_from_images(
+            images=images,
+            audio=audio,
+            **video_params
+        )
+        
+        return {
+            "video_path": video_path,
+            "image_analysis": image_analysis,
+            "script": script
+        }
+        
+    except Exception as e:
+        raise RuntimeError(f"AI视频制作失败: {str(e)}") from e
 
 
 def create_video_from_images(

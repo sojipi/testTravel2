@@ -7,7 +7,7 @@ import json
 import re
 from typing import Dict, Any, List, Optional
 try:
-    from ..config.config import MAX_INPUT_LENGTH, ALLOWED_SEASONS, ALLOWED_HEALTH_STATUS, ALLOWED_BUDGET, ALLOWED_MOBILITY, ALLOWED_DURATION
+    from config.config import MAX_INPUT_LENGTH, ALLOWED_SEASONS, ALLOWED_HEALTH_STATUS, ALLOWED_BUDGET, ALLOWED_MOBILITY, ALLOWED_DURATION
 except ImportError:
     import sys
     import os

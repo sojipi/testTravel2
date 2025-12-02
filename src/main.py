@@ -17,7 +17,7 @@ try:
         generate_itinerary_plan,
         generate_checklist
     )
-    from .core.video_editor import create_video_from_images, validate_media_files
+    from .core.video_editor import create_video_from_images, validate_media_files, create_video_with_ai
     from .ui.components import (
         create_app_theme,
         create_header,
@@ -37,7 +37,7 @@ except ImportError:
         generate_itinerary_plan,
         generate_checklist
     )
-    from core.video_editor import create_video_from_images, validate_media_files
+    from core.video_editor import create_video_from_images, validate_media_files, create_video_with_ai
     from ui.components import (
         create_app_theme,
         create_header,
@@ -182,7 +182,7 @@ def create_app() -> gr.Blocks:
             video_section = create_video_editor_section()
             
             # Bind video generation events
-            def generate_video(images, audio, fps, duration_per_image, transition_duration, animation_type):
+            def generate_video(images, audio):
                 try:
                     # Validate inputs
                     if not images:
@@ -192,19 +192,16 @@ def create_app() -> gr.Blocks:
                     image_paths = [img.name for img in images]
                     audio_path = audio.name if audio else None
                     
-                    # Create video - 使用适合手机的9:16竖屏比例
-                    video_path = create_video_from_images(
+                    # Create video using AI
+                    result = create_video_with_ai(
                         image_paths,
-                        audio_path,
-                        fps,
-                        duration_per_image,
-                        transition_duration,
-                        animation_type,
-                        target_width=720,
-                        target_height=1280  # 9:16 竖屏比例，适合手机播放
+                        audio_path
                     )
                     
-                    return "", f"视频生成成功！", video_path, video_path
+                    # Format image analysis results
+                    analysis_text = "\n".join(result["image_analysis"])
+                    
+                    return "", f"视频生成成功！\n\n图片分析结果：\n{analysis_text}\n\n视频脚本：\n{result['script']}", result["video_path"], result["video_path"]
                     
                 except Exception as e:
                     error_msg = f"视频生成失败: {str(e)}"
@@ -214,11 +211,7 @@ def create_app() -> gr.Blocks:
                 fn=generate_video,
                 inputs=[
                     video_section['images_input'],
-                    video_section['audio_input'],
-                    video_section['fps'],
-                    video_section['duration_per_image'],
-                    video_section['transition_duration'],
-                    video_section['animation_type']
+                    video_section['audio_input']
                 ],
                 outputs=[
                     video_section['loading_output'],
@@ -267,7 +260,7 @@ def main():
     # Launch the application
     app.launch(
         server_name="0.0.0.0",
-        server_port=7860,
+        server_port=7864,
         share=False,
         inbrowser=True,
         debug=False

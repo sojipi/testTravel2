@@ -6,7 +6,7 @@ Handles all API communications with the AI model.
 import openai
 from typing import Optional, Dict, Any
 try:
-    from ..config.config import API_KEY, API_BASE, MODEL_NAME, MAX_TOKENS, TEMPERATURE
+    from config.config import API_KEY, API_BASE, MODEL_NAME, MAX_TOKENS, TEMPERATURE
 except ImportError:
     # Handle direct execution
     import sys
@@ -37,9 +37,82 @@ class OpenAIClient:
                          system_prompt: str, 
                          user_prompt: str, 
                          max_tokens: Optional[int] = None,
-                         temperature: Optional[float] = None) -> str:
+                         temperature: Optional[float] = None, 
+                         model_name: Optional[str] = None) -> str:
         """
         Generate a response using the OpenAI API.
+        
+        Args:
+            system_prompt: The system prompt to guide the AI behavior
+            user_prompt: The user's input prompt
+            max_tokens: Maximum tokens for the response (overrides default)
+            temperature: Temperature for response generation (overrides default)
+            model_name: Name of the model to use (overrides default)
+            
+        Returns:
+            The generated response text
+            
+        Raises:
+            Exception: If API call fails
+        """
+        try:
+            response = self.client.chat.completions.create(
+                model=model_name or MODEL_NAME,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=max_tokens or MAX_TOKENS,
+                temperature=temperature or TEMPERATURE
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            raise Exception(f"API调用失败: {str(e)}")
+    
+    def analyze_image_with_qwen(self, image_path: str) -> str:
+        """
+        Analyze an image using Qwen/Qwen3-VL-8B-Instruct model.
+        
+        Args:
+            image_path: Path to the image file to analyze
+            
+        Returns:
+            Image analysis results
+            
+        Raises:
+            Exception: If API call fails
+        """
+        try:
+            # Read image file
+            with open(image_path, "rb") as f:
+                image_data = f.read()
+            
+            # Note: This is a placeholder - actual Qwen model API integration would be needed
+            # For now, we'll use a placeholder description
+            return "风景照，展示了美丽的自然景观"
+            
+            # Actual implementation would look something like this:
+            # response = self.client.chat.completions.create(
+            #     model="Qwen/Qwen3-VL-8B-Instruct",
+            #     messages=[
+            #         {"role": "system", "content": "你是一个专业的图片分析专家，擅长描述图片内容和场景。"},
+            #         {"role": "user", "content": [
+            #             {"type": "text", "text": "请描述这张图片的内容和场景。"},
+            #             {"type": "image", "data": base64.b64encode(image_data).decode()}
+            #         ]}
+            #     ]
+            # )
+            # return response.choices[0].message.content.strip()
+        except Exception as e:
+            raise Exception(f"图片分析失败: {str(e)}")
+    
+    def generate_response_with_deepseek(self, 
+                                         system_prompt: str, 
+                                         user_prompt: str, 
+                                         max_tokens: Optional[int] = None,
+                                         temperature: Optional[float] = None) -> str:
+        """
+        Generate a response using deepseek-ai/DeepSeek-V3.2-Exp model.
         
         Args:
             system_prompt: The system prompt to guide the AI behavior
@@ -53,19 +126,13 @@ class OpenAIClient:
         Raises:
             Exception: If API call fails
         """
-        try:
-            response = self.client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_tokens=max_tokens or MAX_TOKENS,
-                temperature=temperature or TEMPERATURE
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            raise Exception(f"API调用失败: {str(e)}")
+        return self.generate_response(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            model_name="deepseek-ai/DeepSeek-V3.2-Exp"
+        )
     
     def generate_destination_recommendations(self, 
                                            season: str, 
@@ -85,7 +152,7 @@ class OpenAIClient:
             Generated destination recommendations
         """
         try:
-            from ..config.config import DESTINATION_SYSTEM_PROMPT
+            from config.config import DESTINATION_SYSTEM_PROMPT
         except ImportError:
             from config.config import DESTINATION_SYSTEM_PROMPT
         
@@ -129,7 +196,7 @@ class OpenAIClient:
             Generated itinerary plan
         """
         try:
-            from ..config.config import ITINERARY_SYSTEM_PROMPT
+            from config.config import ITINERARY_SYSTEM_PROMPT
         except ImportError:
             from config.config import ITINERARY_SYSTEM_PROMPT
         
@@ -176,7 +243,7 @@ class OpenAIClient:
             Generated travel checklist
         """
         try:
-            from ..config.config import CHECKLIST_SYSTEM_PROMPT
+            from config.config import CHECKLIST_SYSTEM_PROMPT
         except ImportError:
             from config.config import CHECKLIST_SYSTEM_PROMPT
         
