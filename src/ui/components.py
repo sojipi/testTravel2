@@ -6,7 +6,7 @@ Contains Gradio components and UI-related functions.
 import gradio as gr
 from typing import Dict, Any, List
 try:
-    from ..config.config import (
+    from config.config import (
         INTEREST_OPTIONS, HEALTH_FOCUS_OPTIONS, SEASON_OPTIONS, 
         HEALTH_STATUS_OPTIONS, BUDGET_OPTIONS, MOBILITY_OPTIONS, 
         DURATION_OPTIONS, DEFAULT_INTERESTS, DEFAULT_HEALTH_FOCUS, 
@@ -357,38 +357,7 @@ def create_video_editor_section() -> Dict[str, Any]:
             file_types=[".mp3", ".wav", ".ogg"]
         )
         
-        # Video settings
-        with gr.Row(): 
-            fps = gr.Slider(
-                minimum=10, 
-                maximum=60, 
-                value=24, 
-                step=1,
-                label="🎞️ 帧率 (FPS)"
-            )
-            
-            duration_per_image = gr.Slider(
-                minimum=0.5, 
-                maximum=10.0, 
-                value=3.0, 
-                step=0.1,
-                label="⏱️ 每张图片显示时长 (秒)"
-            )
-        
-        with gr.Row(): 
-            transition_duration = gr.Slider(
-                minimum=0.1, 
-                maximum=2.0, 
-                value=0.5, 
-                step=0.1,
-                label="🔄 转场时长 (秒)"
-            )
-            
-            animation_type = gr.Dropdown(
-                choices=["fade", "zoom", "pan"],
-                value="fade",
-                label="✨ 动画效果"
-            )
+
         
         # Action buttons
         btn = gr.Button("🎬 生成视频", variant="primary", size="lg")
@@ -419,10 +388,6 @@ def create_video_editor_section() -> Dict[str, Any]:
     return {
         'images_input': images_input,
         'audio_input': audio_input,
-        'fps': fps,
-        'duration_per_image': duration_per_image,
-        'transition_duration': transition_duration,
-        'animation_type': animation_type,
         'button': btn,
         'loading_output': loading_output,
         'result_message': result_message,

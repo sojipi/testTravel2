@@ -9,7 +9,7 @@ from datetime import datetime
 import os
 
 try:
-    from ..utils.helpers import sanitize_filename
+    from utils.helpers import sanitize_filename
 except ImportError:
     import sys
     import os

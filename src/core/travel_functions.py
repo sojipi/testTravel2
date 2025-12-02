@@ -6,8 +6,8 @@ Contains the main business logic for travel planning functionality.
 import json
 from typing import List, Dict, Any
 try:
-    from ..api.openai_client import get_client
-    from ..utils.helpers import clean_response, validate_inputs, safe_json_parse, format_interests, format_health_focus, is_valid_chinese_location
+    from api.openai_client import get_client
+    from utils.helpers import clean_response, validate_inputs, safe_json_parse, format_interests, format_health_focus, is_valid_chinese_location
 except ImportError:
     import sys
     import os
