@@ -4,15 +4,25 @@ Handles all API communications with the AI model.
 """
 
 import openai
-from typing import Optional, Dict, Any
+import base64
+from typing import Optional, Dict, Any, List
+from PIL import Image
+import io
 try:
-    from ..config.config import API_KEY, API_BASE, MODEL_NAME, MAX_TOKENS, TEMPERATURE
+    from ..config.config import (
+        API_KEY, API_BASE, MODEL_NAME, MAX_TOKENS, TEMPERATURE,
+        MODELSCOPE_API_KEY, MODELSCOPE_BASE_URL,
+        QWEN_MODEL_NAME, DEEPSEEK_MODEL_NAME
+    )
 except ImportError:
     # Handle direct execution
     import sys
     import os
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from config.config import API_KEY, API_BASE, MODEL_NAME, MAX_TOKENS, TEMPERATURE
+    from config.config import (
+        API_KEY, API_BASE, MODEL_NAME, MAX_TOKENS, TEMPERATURE,
+        MODELSCOPE_API_KEY, MODELSCOPE_BASE_URL, QWEN_MODEL_NAME, DEEPSEEK_MODEL_NAME
+    )
 
 
 class OpenAIClient:
@@ -37,7 +47,9 @@ class OpenAIClient:
                          system_prompt: str, 
                          user_prompt: str, 
                          max_tokens: Optional[int] = None,
-                         temperature: Optional[float] = None) -> str:
+                         temperature: Optional[float] = None,
+                         model_name: Optional[str] = None,
+                         use_modelscope: bool = False) -> str:
         """
         Generate a response using the OpenAI API.
         
@@ -46,6 +58,8 @@ class OpenAIClient:
             user_prompt: The user's input prompt
             max_tokens: Maximum tokens for the response (overrides default)
             temperature: Temperature for response generation (overrides default)
+            model_name: Custom model name to use
+            use_modelscope: Whether to use ModelScope API base URL
             
         Returns:
             The generated response text
@@ -54,8 +68,16 @@ class OpenAIClient:
             Exception: If API call fails
         """
         try:
-            response = self.client.chat.completions.create(
-                model=MODEL_NAME,
+            # Use ModelScope configuration if requested
+            client = self.client
+            if use_modelscope:
+                client = openai.OpenAI(
+                    api_key=MODELSCOPE_API_KEY,
+                    base_url=MODELSCOPE_BASE_URL
+                )
+                
+            response = client.chat.completions.create(
+                model=model_name or MODEL_NAME,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -218,6 +240,99 @@ class OpenAIClient:
 """
         
         return self.generate_response(CHECKLIST_SYSTEM_PROMPT, user_prompt)
+
+
+    def analyze_images(self, image_paths: List[str]) -> List[str]:
+        """
+        Analyze images using Qwen3-VL model to get image descriptions.
+        
+        Args:
+            image_paths: List of image file paths to analyze
+            
+        Returns:
+            List of image descriptions
+        """
+        system_prompt = "你是一个专业的图像分析助手，请详细描述每张图片的内容，包括场景、人物、物体、氛围等信息，输出语言为中文。"
+        
+        descriptions = []
+        
+        for image_path in image_paths:
+            try:
+                # Open and process image to reduce size
+                with Image.open(image_path) as img:
+                    # Convert to RGB if needed
+                    if img.mode in ('RGBA', 'P'):
+                        img = img.convert('RGB')
+                    
+                    # Resize image to maximum 1024x1024
+                    max_dimension = 1024
+                    width, height = img.size
+                    if width > max_dimension or height > max_dimension:
+                        ratio = min(max_dimension / width, max_dimension / height)
+                        new_width = int(width * ratio)
+                        new_height = int(height * ratio)
+                        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    
+                    # Compress image to reduce file size
+                    buffer = io.BytesIO()
+                    img.save(buffer, format='JPEG', quality=85, optimize=True)
+                    buffer.seek(0)
+                    
+                    # Encode image to base64
+                    base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+                
+                user_prompt = f"请详细描述这张图片的内容：![image](data:image/jpeg;base64,{base64_image})"
+                
+                # Use Qwen3-VL model for image analysis
+                description = self.generate_response(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    max_tokens=1024,
+                    temperature=0.3,
+                    model_name=QWEN_MODEL_NAME,
+                    use_modelscope=True
+                )
+                
+                descriptions.append(description)
+            except Exception as e:
+                raise Exception(f"图片分析失败 {image_path}: {str(e)}")
+        
+        return descriptions
+    
+    def generate_video_script(self, image_descriptions: List[str], audio_path: Optional[str] = None) -> str:
+        """
+        Generate video script based on image descriptions and audio information.
+        
+        Args:
+            image_descriptions: List of image descriptions
+            audio_path: Path to background audio file
+            
+        Returns:
+            Generated video script
+        """
+        try:
+            system_prompt = "你是一个专业的视频脚本创作大师，请根据图片分析结果生成详细的视频制作脚本。脚本需要包含：每个镜头的时长、画面描述、动画效果、转场方式等信息，适合用于AI视频生成。"
+            
+            formatted_descriptions = "\n\n".join([f"镜头{i+1}：{desc}" for i, desc in enumerate(image_descriptions)])
+            
+            # Add audio information if provided
+            audio_info = f"\n\n背景音乐：{audio_path}" if audio_path else ""
+            
+            user_prompt = f"请根据以下图片分析结果生成视频脚本：\n\n{formatted_descriptions}{audio_info}"
+            
+            # Generate the video script using DeepSeek model
+            script = self.generate_response(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                max_tokens=2048,
+                temperature=0.7,
+                model_name=DEEPSEEK_MODEL_NAME,
+                use_modelscope=True
+            )
+            
+            return script
+        except Exception as e:
+            raise Exception(f"视频脚本生成失败: {str(e)}")
 
 
 # Global client instance
